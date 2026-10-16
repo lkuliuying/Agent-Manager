@@ -1,0 +1,101 @@
+import { ListView, ScrollView } from "std-widgets.slint";
+import { MessageRow, BlockRow } from "types.slint";
+import { Theme, Icon, Action, Badge, Panel } from "common.slint";
+
+component ContentBlock inherits Rectangle {
+    in property <BlockRow> data;
+    background: data.code ? #f3f6fa : transparent;
+    border-radius: 6px;
+    height: content.preferred-height + (data.code ? 18px : 4px);
+    content := TextInput {
+        x: root.data.code ? 9px : 0px; y: root.data.code ? 9px : 2px;
+        width: parent.width - 2*self.x;
+        height: self.preferred-height;
+        text: root.data.text; read-only: true; single-line: false; wrap: word-wrap;
+        font-family: root.data.code ? "Consolas" : "Microsoft YaHei UI";
+        font-size: root.data.heading > 0 ? 17px : root.data.code ? 12px : 13px;
+        font-weight: root.data.heading > 0 ? 600 : 400;
+        color: root.data.code ? #324762 : Theme.ink;
+        selection-background-color: #b7e9ef; selection-foreground-color: #102c46;
+        line-height-factor: 1.15;
+    }
+}
+
+component MessageItem inherits Rectangle {
+    in property <MessageRow> data;
+    callback toggle(string);
+    callback copy(string);
+    height: layout.preferred-height;
+    layout := VerticalLayout {
+        spacing: 4px; padding-bottom: 10px;
+        HorizontalLayout {
+            spacing: 8px;
+            Rectangle {
+                width: 30px; height: 30px; border-radius: 15px;
+                background: root.data.tool ? #eaf0f7 : root.data.user ? #2fb2ae : #007b9c;
+                Icon { x: 7px; y: 7px; width: 16px; height: 16px; name: root.data.tool ? "code" : root.data.user ? "user" : "agent"; tint: root.data.tool ? Theme.ink : white; }
+            }
+            Text { text: root.data.tool ? root.data.kind : root.data.author; font-size: 13px; font-weight: 600; color: Theme.ink; vertical-alignment: center; }
+            if root.data.tool: Badge { text: root.data.status; kind: root.data.status-code; }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: root.data.time; font-size: 11px; color: Theme.muted; vertical-alignment: center; }
+            Action { icon: "copy"; width: 30px; height: 27px; accessible-label: "复制消息原文"; clicked => { root.copy(root.data.id); } }
+        }
+        Rectangle {
+            background: root.data.user ? #e7f7fd : root.data.tool ? #f7f9fc : #f1f5f9;
+            border-radius: 8px;
+            height: blocks.preferred-height;
+            blocks := VerticalLayout {
+                padding: 8px; spacing: 6px;
+                for block in root.data.blocks: ContentBlock { data: block; }
+                if root.data.can-expand: Action { label: root.data.expanded ? "收起输出" : "展开输出"; icon: "more"; clicked => { root.toggle(root.data.id); } }
+            }
+        }
+    }
+}
+
+export component MessageList inherits Rectangle {
+    in property <[MessageRow]> messages;
+    in property <bool> follow: true;
+    in property <string> identity;
+    private property <string> active-identity;
+    private property <bool> tracking: root.follow;
+    in property <int> message-version;
+    private property <bool> initialized: false;
+    private property <bool> restoring: true;
+    in property <float> saved-y: 0;
+    callback scroll-state(string,float,bool);
+    callback toggle(string);
+    callback copy(string);
+    in-out property <bool> unread: false;
+    init => { root.initialized=true; }
+    changed identity => { root.unread=false; root.restoring=true; root.tracking=root.follow; }
+    // 切换消息模型后先等待原生列表完成布局，避免用旧列表高度将新位置钳制到顶部。
+    restore-timer := Timer {
+        interval: 32ms; running: root.restoring;
+        triggered => {
+            root.active-identity=root.identity;
+            list.content-y = root.follow ? min(0px,list.visible-height - list.content-height) : max(min(0px,list.visible-height - list.content-height),root.saved-y * 1px);
+            root.tracking=root.follow;root.restoring=false;
+            root.scroll-state(root.active-identity,list.content-y/1px,root.tracking);
+        }
+    }
+    changed follow => { root.tracking=root.follow; }
+    changed message-version => { if root.initialized && !root.restoring && !root.tracking { root.unread=true; } }
+    list := ListView {
+        width: parent.width; height: parent.height;
+        horizontal-scrollbar-policy: always-off;
+        changed content-y => {
+            if root.identity == root.active-identity && !root.restoring {
+                root.tracking = self.content-height + self.content-y <= self.visible-height + 32px;
+                if root.tracking { root.unread=false; }
+                root.scroll-state(root.active-identity,self.content-y / 1px, root.tracking);
+            }
+        }
+        changed content-height => {
+            if root.identity == root.active-identity && !root.restoring && root.tracking { self.content-y = min(0px,self.visible-height - self.content-height); }
+        }
+        for message in root.messages: MessageItem { data: message; toggle(id) => { root.toggle(id); } copy(id) => { root.copy(id); } }
+    }
+    public function latest() { root.tracking=true; list.content-y = min(0px,list.visible-height - list.content-height); root.unread=false; root.scroll-state(root.identity,list.content-y/1px,true); }
+}

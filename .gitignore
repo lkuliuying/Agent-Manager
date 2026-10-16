@@ -1,0 +1,10 @@
+/target/
+/artifacts/
+*.log
+__pycache__/
+*.py[cod]
+/verification/*.json
+.env
+.env.*
+!.env.example
+/.agmanage/

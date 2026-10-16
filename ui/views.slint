@@ -1,0 +1,108 @@
+import { ScrollView } from "std-widgets.slint";
+import { SessionRow } from "types.slint";
+import { Theme, Icon, Action, Badge, Panel } from "common.slint";
+import { MessageList } from "messages.slint";
+export component SessionCard inherits Panel {
+    in property <SessionRow> session;
+    callback detail(string); callback scroll-state(string,float,bool);
+    callback toggle-tool(string,string); callback copy-message(string,string);
+    VerticalLayout {
+        padding: 14px; spacing: 10px;
+        HorizontalLayout {
+            spacing: 10px;
+            Rectangle { width: 38px; height: 38px; border-radius: 10px; background: #eaf8fb; Icon { x: 9px; y: 9px; name: "document"; tint: Theme.teal; } }
+            VerticalLayout { spacing: 4px; Text { text: root.session.title; font-weight: 600; color: Theme.ink; overflow: elide; } Text { text: root.session.source + " · " + root.session.project; color: Theme.muted; font-size: 12px; overflow: elide; } }
+            Action { icon: "arrow"; width: 30px; accessible-label: "查看会话详情"; clicked => { root.detail(root.session.id); } }
+        }
+        HorizontalLayout {
+            spacing: 7px;
+            Badge { text: (root.session.fresh ? "" : "上次：") + root.session.status; kind: root.session.status-code; }
+            Badge { text: root.session.fresh ? "连接正常" : "等待重新同步"; kind: root.session.fresh ? 1 : 6; }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        if root.session.messages.length==0: Text { text: root.session.messages-loaded ? "此会话暂无可显示消息" : "正在读取会话消息…"; color: Theme.muted; wrap: word-wrap; }
+        stream := MessageList {
+            messages: root.session.messages; identity: root.session.id; message-version: root.session.message-version; follow: root.session.follow; saved-y: root.session.scroll-y;
+            scroll-state(id,y,follow) => { root.scroll-state(id,y,follow); }
+            toggle(id) => { root.toggle-tool(root.session.id,id); } copy(id) => { root.copy-message(root.session.id,id); }
+        }
+        if stream.unread && !root.session.follow: Action { label: "有新消息 · 回到最新"; icon: "arrow"; clicked => { stream.latest(); } }
+        Rectangle {
+            height: 70px; background: #f4f8fc; border-radius: 8px;
+            VerticalLayout {
+                padding: 8px; spacing: 6px;
+                HorizontalLayout { spacing: 6px; Icon { name: root.session.fresh ? "activity" : "clock"; width: 15px; height: 15px; tint: root.session.fresh ? Theme.teal : Theme.muted; } Text { text: root.session.fresh ? root.session.activity : "显示最后同步的历史内容"; font-size: 11px; color: Theme.ink; overflow: elide; } }
+                HorizontalLayout { Text { text: root.session.synced; font-size: 10px; color: Theme.muted; vertical-alignment: center; overflow: elide; } Action { label: "查看详情"; icon: "arrow"; width: 104px; height: 28px; clicked => { root.detail(root.session.id); } } }
+            }
+        }
+    }
+}
+export component SessionReader inherits Rectangle {
+    in property <SessionRow> session;
+    callback scroll-state(string,float,bool);
+    callback toggle-tool(string,string);
+    callback copy-message(string,string);
+    VerticalLayout {
+        spacing: 10px;
+        if root.session.messages.length==0: Text { text: root.session.messages-loaded ? "此会话暂无可显示消息" : "正在读取会话消息…"; color: Theme.muted; wrap: word-wrap; }
+        stream := MessageList {
+            messages: root.session.messages; identity: root.session.id; message-version: root.session.message-version; saved-y: root.session.scroll-y; follow: root.session.follow;
+            scroll-state(id,y,follow) => { root.scroll-state(id,y,follow); }
+            toggle(message) => { root.toggle-tool(root.session.id,message); }
+            copy(message) => { root.copy-message(root.session.id,message); }
+        }
+        if stream.unread && !root.session.follow: Action { label: "有新消息 · 回到最新消息"; icon: "arrow"; clicked => { stream.latest(); } }
+    }
+}
+export component Inspector inherits Rectangle {
+    in property <SessionRow> session; in property <bool> can-open;
+    callback open-codex(); background: #fbfdff;
+    ScrollView {
+        width: parent.width; height: parent.height; horizontal-scrollbar-policy: always-off;
+        VerticalLayout {
+            padding: 14px; spacing: 12px;
+            Panel {
+                height: info.preferred-height;
+                info := VerticalLayout {
+                    padding: 16px; spacing: 13px;
+                    HorizontalLayout { spacing: 9px; Icon { name: "document"; tint: Theme.blue; } Text { text: "任务状态"; color: Theme.ink; font-weight: 600; } }
+                    Badge { text: (root.session.fresh ? "" : "上次：") + root.session.status; kind: root.session.status-code; }
+                    Text { text: "项目     " + root.session.project; color: Theme.ink; font-size: 12px; overflow: elide; }
+                    Text { text: "创建     " + root.session.created; color: Theme.muted; font-size: 12px; }
+                    Text { text: "同步     " + root.session.synced; color: Theme.muted; font-size: 12px; }
+                    if root.session.source-code==1: Action { label: "在 Codex 中查看"; icon: "link"; enabled: root.can-open; clicked => { root.open-codex(); } }
+                }
+            }
+            Panel {
+                height: activity.preferred-height;
+                activity := VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    HorizontalLayout { spacing: 9px; Icon { name: "activity"; tint: Theme.teal; } Text { text: "当前活动"; color: Theme.ink; font-weight: 600; } }
+                    Text { text: root.session.fresh ? root.session.activity : "状态待确认"; color: Theme.ink; font-weight: 600; wrap: word-wrap; }
+                    Text { text: root.session.fresh ? "根据最近收到的会话事件显示" : "正在显示缓存，原任务继续在原应用中运行。"; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                }
+            }
+            Panel {
+                height: recent.preferred-height;
+                recent := VerticalLayout {
+                    padding: 16px; spacing: 14px;
+                    HorizontalLayout { spacing: 9px; Icon { name: "clock"; tint: Theme.blue; } Text { text: "最近活动"; color: Theme.ink; font-weight: 600; } }
+                    for index in [0,1,2,3]: HorizontalLayout {
+                        if root.session.messages.length > index: Text { text: root.session.messages[root.session.messages.length - 1 - index].time; color: Theme.muted; font-size: 11px; width: 40px; }
+                        if root.session.messages.length > index: Text { text: root.session.messages[root.session.messages.length - 1 - index].tool ? root.session.messages[root.session.messages.length - 1 - index].kind : root.session.messages[root.session.messages.length - 1 - index].author + " · 消息更新"; color: Theme.ink; font-size: 12px; overflow: elide; }
+                    }
+                }
+            }
+            Panel {
+                height: link.preferred-height;
+                link := VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    HorizontalLayout { spacing: 9px; Icon { name: "link"; tint: Theme.teal; } Text { text: "监控连接"; color: Theme.ink; font-weight: 600; } }
+                    Badge { text: root.session.fresh ? "已连接并同步" : "等待重新同步"; kind: root.session.fresh ? 1 : 6; }
+                    Text { text: "本机 / " + root.session.source + " · " + root.session.version; color: Theme.ink; font-size: 12px; }
+                    Text { text: root.session.history-note; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                }
+            }
+        }
+    }
+}

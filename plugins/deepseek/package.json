@@ -1,0 +1,10 @@
+{
+  "name": "@dsh-external/agmanage-observer",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": { ".": "./index.mjs" },
+  "description": "AgManage 只读会话观察插件",
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+}

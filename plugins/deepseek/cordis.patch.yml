@@ -1,0 +1,4 @@
+- insert:
+    - id: agmanage-observer
+      name: '@dsh-external/agmanage-observer'
+      config: {}

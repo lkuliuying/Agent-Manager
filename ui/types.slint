@@ -1,0 +1,6 @@
+export struct BlockRow { text: string, code: bool, heading: int }
+export struct MessageRow { id: string, author: string, kind: string, time: string, status: string, status-code: int, tool: bool, user: bool, expanded: bool, can-expand: bool, blocks: [BlockRow] }
+export struct SessionRow { messages-loaded: bool, id: string, native-id: string, source: string, source-code: int, version: string, title: string, project: string, status: string, status-code: int, fresh: bool, activity: string, created: string, synced: string, messages: [MessageRow], message-version: int, scroll-y: float, follow: bool, history-note: string, selected: bool }
+export struct CardGroup { cards: [SessionRow] }
+
+export struct SourceRow { code: int, label: string, status: string, connected: bool, note: string, version: string, installed: bool, path: string, busy: bool }

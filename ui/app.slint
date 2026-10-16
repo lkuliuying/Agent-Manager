@@ -1,0 +1,216 @@
+import { LineEdit, ListView, ScrollView, AboutSlint } from "std-widgets.slint";
+import { Theme, Icon, Action, Badge, Panel } from "common.slint";
+import { SessionRow, CardGroup, MessageRow, BlockRow, SourceRow } from "types.slint";
+import { SessionCard, SessionReader, Inspector } from "views.slint";
+import { MessageList } from "messages.slint";
+export { NativeGate } from "native-gate.slint";
+export { SessionRow, CardGroup, MessageRow, BlockRow, SourceRow }
+
+export component AppWindow inherits Window {
+    icon: @image-url("../assets/logo.svg");
+    title: "Agent 管理器"; preferred-width: 1440px; preferred-height: 870px; min-width: 860px; min-height: 600px;
+    background: Theme.canvas; default-font-family: "Microsoft YaHei UI"; default-font-size: 14px;
+    in-out property <[SourceRow]> sources;
+    in-out property <int> source-filter: 0;
+    in-out property <[SessionRow]> sessions; in-out property <[CardGroup]> groups;
+    in-out property <[SessionRow]> detail-sessions;
+    in-out property <SessionRow> selected;
+    in-out property <int> view: 0; in-out property <int> filter: 0; in-out property <string> query;
+    in-out property <bool> demo: false; in-out property <bool> offline: true; in-out property <bool> can-open: false;
+    in-out property <string> connection: "正在连接"; in-out property <string> synced: "—";
+    in-out property <string> diagnostics; in-out property <string> toast;
+    in-out property <int> total; in-out property <int> running; in-out property <int> completed; in-out property <int> stale;
+    in-out property <bool> info-open: false;
+    in-out property <float> available-width: 1180;
+    out property <int> columns: root.available-width >= 1080 ? 3 : root.available-width >= 720 ? 2 : 1;
+    callback source-filter-changed(int); callback source-path-changed(int,string); callback manage-source(int,int);
+    callback columns-changed(int); callback search(string); callback filter-changed(int);
+    callback open-detail(string); callback toggle-watch(string); callback rescan(int); callback retry(int); callback open-codex(string);
+    callback scroll-state(string,float,bool,bool); callback toggle-tool(string,string,bool); callback copy-message(string,string); callback copy-text(string);
+    changed columns => { root.columns-changed(root.columns); }
+    copy-text(text) => { clipboard.text=text; clipboard.select-all(); clipboard.copy(); }
+    clipboard := TextInput { visible: false; read-only: true; }
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 48px; background: #fcfdff;
+            HorizontalLayout {
+                padding-left: 22px; padding-right: 22px; spacing: 14px;
+                Icon { name: "grid"; tint: #006c86; } Text { text: "会话工作台"; font-weight: 600; color: Theme.ink; font-size: 18px; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+                for source in root.sources: Action { label: (source.code==3 && root.available-width<840 ? "DeepSeek" : source.label) + " · " + source.status; height: 30px; clicked => { root.view=2; } }
+                Rectangle { horizontal-stretch: 1; } Badge { text: "只读监控"; kind: 1; }
+            }
+            Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+        }
+        HorizontalLayout {
+            spacing: 0px;
+            Rectangle {
+                width: 260px; background: #f9fcfe;
+                VerticalLayout {
+                    padding: 14px; spacing: 12px;
+                    LineEdit { placeholder-text: "搜索会话（标题、项目名…）"; text <=> root.query; edited(text) => { root.search(text); } }
+                    VerticalLayout {
+                        spacing: 5px;
+                        HorizontalLayout { spacing: 5px; for code in [0,1]: Action { label: code==0 ? "全部来源" : "Codex"; height: 30px; primary: root.source-filter==code; clicked => { root.source-filter=code;root.source-filter-changed(code); } } }
+                        HorizontalLayout { spacing: 5px; for code in [2,3]: Action { label: code==2 ? "OpenCode" : "DeepSeek"; height: 30px; primary: root.source-filter==code; clicked => { root.source-filter=code;root.source-filter-changed(code); } } }
+                    }
+                    Action { label: root.view == 1 ? "返回会话总览" : "会话总览"; icon: "grid"; background: #e2f5f7; clicked => { root.view=0; } }
+                    Text { text: "我的会话（" + root.total + "）"; color: Theme.muted; font-size: 12px; height: 24px; }
+                    ListView {
+                        horizontal-scrollbar-policy: always-off;
+                        for session in root.sessions: Rectangle {
+                            height: 84px; border-radius: 8px;
+                            background: root.view==1 && root.selected.id==session.id ? #e3f5fa : item-touch.has-hover ? #edf5fa : transparent;
+                            HorizontalLayout {
+                                padding: 9px; spacing: 8px;
+                                Icon { name: "document"; width: 17px; height: 17px; tint: session.selected ? Theme.teal : #60778f; }
+                                VerticalLayout {
+                                    spacing: 5px;
+                                    Text { text: session.title; font-size: 13px; font-weight: 600; color: Theme.ink; overflow: elide; }
+                                    Text { text: (session.fresh ? "" : "上次：") + session.status + " · " + session.activity; color: session.fresh ? Theme.muted : Theme.amber; font-size: 11px; overflow: elide; }
+                                    Text { text: session.source + " · " + session.project; color: Theme.muted; font-size: 12px; overflow: elide; }
+                                }
+                                Action { icon: session.selected ? "eye" : "grid"; width: 28px; height: 28px; accessible-label: session.selected ? "移出总览" : "加入总览"; clicked => { root.toggle-watch(session.id); } }
+                            }
+                            item-touch := TouchArea { width: parent.width - 43px; mouse-cursor: pointer; clicked => { root.open-detail(session.id); } }
+                        }
+                    }
+                    Action { label: "接入管理"; icon: "wrench"; clicked => { root.view=2; } }
+                }
+                Rectangle { x: parent.width - 1px; width: 1px; background: Theme.line; }
+            }
+            content := Rectangle {
+                min-width: 0px; preferred-width: 0px; min-height: 0px; preferred-height: 0px;
+                horizontal-stretch: 1; vertical-stretch: 1;
+                Rectangle { visible: root.view==0; VerticalLayout {
+                    padding: 20px; spacing: 12px;
+                    HorizontalLayout {
+                        spacing: 12px; height: 48px;
+                        Text { text: "会话总览"; color: Theme.ink; font-size: 25px; font-weight: 700; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Badge { text: root.running + " 运行中"; kind: 1; }
+                        Badge { text: root.completed + " 本轮完成"; }
+                        if root.stale>0: Badge { text: root.stale + " 待同步"; kind: 6; }
+                    }
+                    if root.offline || root.stale > 0: Rectangle {
+                        background: #fff8e6; border-color: #f0cf78; border-width: 1px; border-radius: 8px; height: warning.preferred-height;
+                        warning := HorizontalLayout {
+                            padding: 12px; spacing: 12px; Icon { name: "warning"; tint: #e19500; width: 27px; height: 27px; }
+                            VerticalLayout {
+                                spacing: 5px; Text { text: root.connection; color: #755300; font-weight: 600; wrap: word-wrap; }
+                                Text { text: root.total > 0 ? "断开来源保留上次内容；最后同步：" + root.synced : "请保持原应用运行，并在接入管理中检查观察插件。"; color: #806a40; font-size: 12px; wrap: word-wrap; }
+                            }
+                            Action { label: "立即重试"; icon: "sync"; width: 106px; clicked => { root.retry(root.source-filter); } }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 7px; height: 36px;
+                        for tab[index] in ["全部", "运行中", "已完成", "状态待确认"]: Action { label: tab; primary: root.filter==index; width: index==3 ? 112px : 80px; clicked => { root.filter=index;root.filter-changed(index); } }
+                        Rectangle { horizontal-stretch: 1; } Action { label: "重新扫描"; icon: "sync"; width: 110px; clicked => { root.rescan(root.source-filter); } }
+                    }
+                    if root.groups.length == 0: Rectangle {
+                        VerticalLayout {
+                            alignment: center; spacing: 14px;
+                            Text { text: root.total==0 ? "尚未发现会话" : "没有符合当前条件的会话"; color: Theme.ink; font-size: 21px; horizontal-alignment: center; }
+                            Text { text: root.total==0 ? "在接入管理中安装插件；连接后可查看原应用已有会话。" : "调整来源或状态筛选，也可在左侧将会话加入总览。"; color: Theme.muted; wrap: word-wrap; horizontal-alignment: center; }
+                        }
+                    }
+                    if root.groups.length > 0: ScrollView {
+                        horizontal-scrollbar-policy: always-off;
+                        VerticalLayout {
+                            spacing: 12px;
+                            for group in root.groups: HorizontalLayout {
+                                spacing: 12px; height: max(480px,content.height - 144px - (root.offline || root.stale > 0 ? 78px : 0px));
+                                for session in group.cards: SessionCard {
+                                    session: session; detail(id) => { root.open-detail(id); }
+                                    scroll-state(id,y,follow) => { root.scroll-state(id,y,follow,false); }
+                                    toggle-tool(id,message) => { root.toggle-tool(id,message,false); } copy-message(id,message) => { root.copy-message(id,message); }
+                                }
+                            }
+                        }
+                    }
+                } }
+                Rectangle { visible: root.view==1; HorizontalLayout {
+                    spacing: 0px;
+                    VerticalLayout {
+                        padding: 18px; spacing: 12px;
+                        HorizontalLayout {
+                            spacing: 10px; Icon { name: "document"; tint: Theme.teal; width: 26px; height: 26px; }
+                            Text { text: root.selected.title; color: Theme.ink; font-size: 23px; font-weight: 700; overflow: elide; }
+                            if root.selected.source-code==1: Action { label: "在 Codex 中查看"; icon: "link"; width: 152px; enabled: root.can-open && !root.demo; clicked => { root.open-codex(root.selected.id); } }
+                            if root.selected.source-code!=1: Action { label: "复制会话标识"; icon: "link"; width: 140px; clicked => { root.copy-text(root.selected.native-id);root.toast="已复制会话标识"; } }
+                            if root.available-width < 1120: Action { label: "任务信息"; width: 90px; clicked => { root.info-open=!root.info-open; } }
+                        }
+                        HorizontalLayout {
+                            spacing: 10px; Badge { text: (root.selected.fresh ? "" : "上次：") + root.selected.status; kind: root.selected.status-code; }
+                            Badge { text: root.selected.source + " · " + root.selected.project; }
+                            Text { text: "最近同步：" + root.selected.synced; color: Theme.muted; font-size: 11px; vertical-alignment: center; overflow: elide; }
+                        }
+                        if !root.selected.fresh: Text { text: "正在显示缓存内容，等待重新同步；原会话的执行不受影响。"; color: Theme.amber; wrap: word-wrap; }
+                        Rectangle {
+                            for session in root.detail-sessions: SessionReader {
+                                width: parent.width; height: parent.height;
+                                visible: session.id==root.selected.id;
+                                session: session;
+                                scroll-state(id,y,follow) => { root.scroll-state(id,y,follow,true); }
+                                toggle-tool(id,message) => { root.toggle-tool(id,message,true); }
+                                copy-message(id,message) => { root.copy-message(id,message); }
+                            }
+                        }
+                        Rectangle { height: 34px; background: white; border-width: 1px; border-color: Theme.line; border-radius: 7px; Text { x: 12px; width: parent.width - 24px; text: "只读监控 · 请在 " + root.selected.source + " 中继续操作原会话"; color: Theme.muted; font-size: 12px; vertical-alignment: center; overflow: elide; } }
+                    }
+                    if root.available-width >= 1120: Inspector { width: 320px; session: root.selected; can-open: root.can-open && !root.demo && root.selected.source-code==1; open-codex => { root.open-codex(root.selected.id); } }
+                } }
+                if root.view==1 && root.available-width < 1120 && root.info-open: Rectangle {
+                    background: #11223344; TouchArea { clicked => { root.info-open=false; } }
+                    Inspector { x: parent.width - self.width; width: 320px; session: root.selected; can-open: root.can-open && !root.demo && root.selected.source-code==1; open-codex => { root.open-codex(root.selected.id); } }
+                }
+                if root.view == 2: ScrollView {
+                    horizontal-scrollbar-policy: always-off;
+                    VerticalLayout {
+                        padding: 22px; spacing: 14px;
+                        Text { text: "接入管理"; font-size: 26px; font-weight: 700; color: Theme.ink; }
+                        Text { text: "连接本机已有会话。插件只观察，任务仍在原应用中操作。"; color: Theme.muted; wrap: word-wrap; }
+                        for source in root.sources: Panel {
+                            height: setup.preferred-height;
+                            setup := VerticalLayout {
+                                padding: 16px; spacing: 10px;
+                                HorizontalLayout {
+                                    spacing: 10px; Text { text: source.label; color: Theme.ink; font-size: 18px; font-weight: 600; }
+                                    Badge { text: source.status; kind: source.connected ? 1 : 0; }
+                                    Text { text: source.version; color: Theme.muted; font-size: 12px; }
+                                    Rectangle { horizontal-stretch: 1; }
+                                }
+                                Text { text: source.note; color: source.connected ? Theme.teal : Theme.muted; font-size: 12px; wrap: word-wrap; }
+                                if source.code!=1: LineEdit { placeholder-text: "桌面应用 exe 路径"; text: source.path; enabled: !source.busy; edited(value) => { root.source-path-changed(source.code,value); } }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    if source.code!=1: Action { label: source.busy ? "正在处理…" : source.installed ? "更新插件" : "安装插件"; primary: !source.installed; enabled: !source.busy && !root.demo; clicked => { root.manage-source(source.code,1); } }
+                                    if source.code!=1: Action { label: "检测"; enabled: !source.busy && !root.demo; clicked => { root.manage-source(source.code,0); } }
+                                    if source.code!=1 && source.installed: Action { label: "卸载"; enabled: !source.busy && !root.demo; clicked => { root.manage-source(source.code,2); } }
+                                    Action { label: "重新连接"; enabled: !source.busy; clicked => { root.retry(source.code); } }
+                                    Action { label: "扫描会话"; enabled: !source.busy; clicked => { root.rescan(source.code); } }
+                                    Rectangle { horizontal-stretch: 1; }
+                                }
+                            }
+                        }
+                        TextInput { text: root.diagnostics; read-only: true; single-line: false; wrap: word-wrap; color: Theme.muted; font-size: 12px; min-height: 100px; }
+                        Text { text: "消息仅保存在本次运行内存。关闭管理器后，原任务继续运行。"; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                    }
+                }
+
+            }
+        }
+        Rectangle {
+            height: 36px; background: #f0f6fb;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px; spacing: 10px; Icon { name: "monitor"; width: 16px; height: 16px; }
+                Text { text: "本机 · 多 Agent 只读观察"; color: Theme.muted; font-size: 11px; }
+                Text { text: "最近同步：" + root.synced; color: Theme.muted; font-size: 11px; overflow: elide; }
+                Rectangle { horizontal-stretch: 1; } Badge { text: root.demo ? "演示数据 · 原生预览" : root.offline ? "监控连接正在重连" : "实时监控"; kind: root.demo ? 2 : root.offline ? 6 : 1; }
+            }
+        }
+    }
+    if root.toast != "": Panel { x: parent.width/2 - self.width/2; y: parent.height - 86px; width: min(600px,parent.width - 40px); height: 64px; Text { text: root.toast; wrap: word-wrap; color: Theme.teal; horizontal-alignment: center; vertical-alignment: center; } }
+}

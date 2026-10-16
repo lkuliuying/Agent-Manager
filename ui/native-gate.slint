@@ -1,0 +1,41 @@
+import { TextEdit } from "std-widgets.slint";
+
+export component NativeGate inherits Window {
+    title: "Agent 管理器 · 原生能力验证";
+    width: 1080px;
+    height: 760px;
+    background: #f6fafc;
+    default-font-family: "Microsoft YaHei UI";
+    default-font-size: 14px;
+    in-out property <string> sample: "中文选择与复制：OAuth 回调、会话隔离、状态同步。\nconst storedState = req.session?.oauthState;\nif (storedState !== incomingState) { return false; }";
+    in-out property <string> long-output;
+    in-out property <[string]> streams;
+    out property <length> scroll-y: output.content-y;
+    out property <length> scroll-hit-y: output.y + 30px;
+    out property <length> sample-hit-y: sample.y + 20px;
+    callback copy-sample();
+    callback focus-sample();
+    callback copy-selection();
+    copy-sample => { sample.select-all(); sample.copy(); }
+    focus-sample => { sample.focus(); }
+    copy-selection => { sample.copy(); }
+    VerticalLayout {
+        padding: 24px;
+        spacing: 18px;
+        Text { text: "原生消息阅读能力验证"; font-size: 26px; font-weight: 700; color: #172b45; }
+        Text { text: "Winit / FemtoVG-WGPU · 演示数据 · 中文、代码、选择复制、长输出和三路更新"; color: #53677e; }
+        sample := TextEdit { text <=> root.sample; read-only: true; height: 120px; }
+        HorizontalLayout {
+            spacing: 14px;
+            for value in root.streams: Rectangle {
+                background: #e7f7f8; border-radius: 10px;
+                height: 60px;
+                Text { text: value; color: #006d77; horizontal-alignment: center; vertical-alignment: center; }
+            }
+        }
+        output := TextEdit {
+            text: root.long-output; read-only: true;
+            font-family: "Consolas"; wrap: no-wrap;
+        }
+    }
+}

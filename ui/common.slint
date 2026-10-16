@@ -1,0 +1,57 @@
+export global Theme {
+    out property <color> ink: #18263d;
+    out property <color> muted: #63748b;
+    out property <color> line: #e6edf4;
+    out property <color> teal: #009a9f;
+    out property <color> blue: #167dff;
+    out property <color> green: #00a65b;
+    out property <color> amber: #c87800;
+    out property <color> canvas: #f8fbfd;
+}
+export component Icon inherits Rectangle {
+    in property <string> name;
+    in property <color> tint: Theme.muted;
+    width: 20px; preferred-height: 20px;
+    Image {
+        width: min(parent.width,parent.height); height: self.width;
+        x: (parent.width - self.width)/2; y: (parent.height - self.height)/2; colorize: root.tint;
+        source: root.name == "grid" ? @image-url("../assets/grid.svg") : root.name == "search" ? @image-url("../assets/search.svg") : root.name == "monitor" ? @image-url("../assets/monitor.svg") : root.name == "play" ? @image-url("../assets/play.svg") : root.name == "check" ? @image-url("../assets/check.svg") : root.name == "sync" ? @image-url("../assets/sync.svg") : root.name == "link" ? @image-url("../assets/link.svg") : root.name == "code" ? @image-url("../assets/code.svg") : root.name == "wrench" ? @image-url("../assets/wrench.svg") : root.name == "activity" ? @image-url("../assets/activity.svg") : root.name == "clock" ? @image-url("../assets/clock.svg") : root.name == "arrow" ? @image-url("../assets/arrow.svg") : root.name == "copy" ? @image-url("../assets/copy.svg") : root.name == "more" ? @image-url("../assets/more.svg") : root.name == "warning" ? @image-url("../assets/warning.svg") : root.name == "user" ? @image-url("../assets/user.svg") : root.name == "agent" ? @image-url("../assets/agent.svg") : root.name == "bars" ? @image-url("../assets/bars.svg") : root.name == "eye" ? @image-url("../assets/eye.svg") : @image-url("../assets/document.svg");
+    }
+}
+export component Action inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> primary: false;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 34px; min-width: 30px;
+    border-radius: 8px;
+    background: !enabled ? #f1f4f7 : primary ? (touch.has-hover ? #007f86 : Theme.teal) : (touch.has-hover ? #eef6ff : white);
+    border-color: focus.has-focus ? Theme.blue : Theme.line;
+    border-width: 1px;
+    accessible-role: button; accessible-label: label; accessible-enabled: enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 10px; spacing: 7px;
+        if root.icon != "": Icon { name: root.icon; tint: root.primary ? white : Theme.blue; width: 16px; }
+        if root.label != "": Text { text: root.label; color: !root.enabled ? #8795a6 : root.primary ? white : Theme.blue; font-size: 13px; vertical-alignment: center; horizontal-alignment: center; }
+    }
+    focus := FocusScope {
+        enabled: root.enabled;
+        KeyBinding { keys: @keys(Return); activated => { root.clicked(); } }
+        KeyBinding { keys: @keys(Space); activated => { root.clicked(); } }
+        touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { focus.focus(); root.clicked(); } }
+    }
+}
+export component Badge inherits Rectangle {
+    in property <string> text;
+    in property <int> kind: 0;
+    out property <color> foreground: kind==1 ? #008d50 : kind==2 ? #0879e9 : kind==3 ? #c13d45 : kind==6 ? #a56300 : #63748b;
+    height: 26px; width: label.preferred-width + 20px;
+    border-radius: 13px;
+    background: kind==1 ? #e5faf0 : kind==2 ? #eaf4ff : kind==3 ? #fff0f0 : kind==6 ? #fff4df : #f0f3f7;
+    label := Text { text: root.text; color: root.foreground; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+}
+export component Panel inherits Rectangle {
+    background: white; border-width: 1px; border-color: Theme.line; border-radius: 11px;
+}
