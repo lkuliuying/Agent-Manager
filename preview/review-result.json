@@ -1,0 +1,17 @@
+{
+  "scope": "three_static_windows_desktop_mockups_only",
+  "disposition": "ship",
+  "reviewedFiles": ["01-overview.png", "02-detail.png", "03-reconnect.png"],
+  "resolved": [
+    "详情页返回总览导航",
+    "断线工具行的上次状态标识",
+    "跨区域活动摘要一致性",
+    "原应用查看入口的命名",
+    "明确的查看详情动作",
+    "中文标点换行"
+  ],
+  "unresolved": [],
+  "formalUiImplementation": false,
+  "interactiveBehaviorVerified": false,
+  "limitations": "仅限静态图审阅；不是原生应用运行、性能、DPI、键盘或交互验收"
+}

@@ -1,0 +1,43 @@
+{
+  "artifactType": "static-native-desktop-mockups",
+  "status": "awaiting_user_review",
+  "platform": "Windows",
+  "proposedStack": "Rust + Slint / Winit / FemtoVG-WGPU",
+  "webview": false,
+  "formalUiImplementation": false,
+  "data": "synthetic_only",
+  "mode": "operate",
+  "direction": "原生事件工作台：固定会话导航和并排的独立消息流，详情页集中阅读，断线页呈现带时间的缓存快照",
+  "directionCandidates": [
+    "IDE 的分栏工作台",
+    "进程监视器的紧凑状态表",
+    "邮件收件箱的列表与阅读区",
+    "调度席的多路监视画面",
+    "事件查看器的多会话消息日志",
+    "任务表格的会话与活动矩阵",
+    "终端复用器的独立文本窗格"
+  ],
+  "assignedCandidate": 5,
+  "designReferenceAssessment": {
+    "metro": "declined：巨型标题与色块降低消息密度；保留直接而清晰的状态标识",
+    "airportSigns": "declined：导航主导不适合长消息阅读；保留异常时明确的恢复指引",
+    "printedCatalog": "declined：缩略格不适合消息与代码；保留同屏多个内容流的可比性",
+    "cassetteCard": "declined：翻面增加切换；保留会话标题和时间标签的一致位置",
+    "timetable": "declined：倾斜和单字号降低中文长消息可读性；保留稳定对齐的状态和时间",
+    "exposureSheets": "declined：重叠与纹理遮挡内容；保留对任务状态与连接状态的独立编码"
+  },
+  "screens": [
+    {"file": "01-overview.png", "purpose": "同时阅读三个会话的当前消息、工具活动及任务状态"},
+    {"file": "02-detail.png", "purpose": "集中阅读单个会话，保留其他会话导航和当前活动"},
+    {"file": "03-reconnect.png", "purpose": "断线期间保留消息，将任务状态标注为上次已知状态，并说明恢复动作"}
+  ],
+  "implementationBoundaries": [
+    "PNG 为静态示意，按钮与滚动条尚无交互行为，不是 Slint 运行截图",
+    "当前活动及最近工具来自实际事件；有结构化计划才另行展示步骤进度，不推算百分比",
+    "空闲不自动等同本轮完成：完成标签需要最近一轮的终态支持",
+    "在 Codex 中查看是拟议的原应用导航入口，精确跳转能力尚待正式实现前验证",
+    "正式原生界面的中文选择复制、长消息滚动、键盘和 DPI 行为仍待实现及验收",
+    "内部 IPC 及只读索引须做版本检测，不支持时保留缓存并明确提示，不接管任务"
+  ],
+  "deferred": ["正式界面代码", "审批", "消息发送和任务控制", "其他 Agent"]
+}
